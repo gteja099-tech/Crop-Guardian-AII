@@ -1,0 +1,63 @@
+services:
+  # ── Node.js Backend ──────────────────────────────────────────────
+  - type: web
+    name: cropguardian-backend
+    env: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: ML_SERVICE_URL
+        fromService:
+          name: cropguardian-ml
+          type: web
+          property: host
+      - key: CORS_ORIGIN
+        fromService:
+          name: cropguardian-frontend
+          type: web
+          property: host
+
+  # ── Python FastAPI ML Service ──────────────────────────────────
+  - type: web
+    name: cropguardian-ml
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend/ml-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+  # ── Static Frontend ────────────────────────────────────────────
+  - type: web
+    name: cropguardian-frontend
+    env: static
+    region: oregon
+    plan: free
+    staticPublishPath: .
+    buildCommand: echo "No build needed"
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
